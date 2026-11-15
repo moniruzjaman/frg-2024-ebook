@@ -1722,6 +1722,45 @@ body.audio-visible .ebook-toast { bottom: calc(var(--audio-h) + 74px); }
 .hero-actions a.btn-hero,
 .book-end-actions a.btn-secondary { text-decoration: none; }
 
+/* ── Author links: other ebooks + portfolio ──────────────── */
+.author-links {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--c-line);
+}
+.author-links-label {
+    display: block;
+    font-family: var(--font-head);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--c-muted);
+    margin-bottom: 10px;
+    text-align: center;
+}
+.author-links-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+.author-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--c-primary-50);
+    border: 1px solid var(--c-line);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-family: var(--font-head);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--c-primary);
+    text-decoration: none;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+.author-chip:hover { background: var(--c-primary-100); transform: translateY(-1px); }
+
 /* ── Room for the bottom quick-nav above content end ─────── */
 .book-content { padding-bottom: 120px; }
 

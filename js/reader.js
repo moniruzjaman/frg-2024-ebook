@@ -30,6 +30,18 @@
     // Official front-matter sections start collapsed (expandable)
     const DEFAULT_COLLAPSED = ['fm-pub', 'fm-bani', 'fm-mukho'];
 
+    // Author's other ebooks + portfolio (injected into About section and book-end)
+    const AUTHOR_LINKS = `
+<div class="author-links">
+  <span class="author-links-label">লেখকের আরও ই-বুক ও পোর্টফোলিও</span>
+  <div class="author-links-grid">
+    <a class="author-chip" data-author-link="self_learning" href="https://moniruzjaman.github.io/self-learning/" target="_blank" rel="noopener" title="স্বশিক্ষা ও স্বনির্ভরতার কৃষি — ই-বুক">📘 স্বশিক্ষা ও স্বনির্ভরতার কৃষি</a>
+    <a class="author-chip" data-author-link="bangladesh_zindabad" href="https://moniruzjaman.github.io/bangladesh-zindabad/" target="_blank" rel="noopener" title="বাংলাদেশ জিন্দাবাদ — ই-বুক">📗 বাংলাদেশ জিন্দাবাদ</a>
+    <a class="author-chip" data-author-link="rashtra_teen_chokhe" href="https://moniruzjaman.github.io/rashtra_teen_chokhe/read.html" target="_blank" rel="noopener" title="রাষ্ট্রকে দেখা তিন চোখে — ই-বুক">📕 রাষ্ট্রকে দেখা তিন চোখে</a>
+    <a class="author-chip" data-author-link="portfolio" href="https://moniruzjaman.github.io/portfolio/" target="_blank" rel="noopener" title="লেখকের পোর্টফোলিও">👨‍💼 লেখকের পোর্টফোলিও</a>
+  </div>
+</div>`;
+
     function renderBook() {
         const root = $('#bookContent');
         const html = [];
@@ -76,6 +88,12 @@
             t.parentNode.insertBefore(wrap, t);
             wrap.appendChild(t);
         });
+
+        // Author links: append to About section and book-end card
+        const aboutBody = $('#about .chapter-body');
+        if (aboutBody) aboutBody.insertAdjacentHTML('beforeend', AUTHOR_LINKS);
+        const endFoot = $('#bookEnd .book-end-foot');
+        if (endFoot) endFoot.insertAdjacentHTML('beforebegin', AUTHOR_LINKS);
 
         restoreCollapse();
     }
@@ -590,6 +608,14 @@
             if (el) el.addEventListener('click', () => {
                 if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('handbook_app_click', { source: id });
             });
+        });
+
+        // Author links: other ebooks + portfolio (About section + book-end)
+        document.addEventListener('click', (e) => {
+            const chip = e.target.closest('.author-chip');
+            if (chip && window.EBOOK_ANALYTICS) {
+                EBOOK_ANALYTICS.event('author_link_click', { link_id: chip.dataset.authorLink || 'unknown' });
+            }
         });
 
         // End buttons
