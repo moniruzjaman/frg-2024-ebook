@@ -1761,6 +1761,10 @@ body.audio-visible .ebook-toast { bottom: calc(var(--audio-h) + 74px); }
 }
 .author-chip:hover { background: var(--c-primary-100); transform: translateY(-1px); }
 
+/* ── PWA install buttons (visible only when installable) ─── */
+body:not(.install-ready) .install-btn { display: none !important; }
+.icon-btn.install-btn { color: var(--c-primary); }
+
 /* ── Room for the bottom quick-nav above content end ─────── */
 .book-content { padding-bottom: 120px; }
 

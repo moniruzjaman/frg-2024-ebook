@@ -618,6 +618,56 @@
             }
         });
 
+        // ── PWA install buttons (topbar + hero + book-end) ────────
+        // Shown only when the browser allows install: on
+        // beforeinstallprompt (Android/desktop Chrome/Edge) or on
+        // iOS Safari, where a manual guide is offered instead.
+        const INSTALL_BTNS = ['btnInstallTop', 'btnHeroInstall', 'btnEndInstall'];
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+            || window.navigator.standalone === true;
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        let installEvt = null;
+
+        const showInstallUI = () => document.body.classList.add('install-ready');
+        const hideInstallUI = () => document.body.classList.remove('install-ready');
+
+        if (!isStandalone) {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                installEvt = e;
+                showInstallUI();
+                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('pwa_install_available', {});
+            });
+            if (isIOS) showInstallUI();  // iOS never fires beforeinstallprompt
+        }
+
+        window.addEventListener('appinstalled', () => {
+            installEvt = null;
+            hideInstallUI();
+            if (window.EBOOK_TOAST) EBOOK_TOAST('📖 ইনস্টল সম্পন্ন — এখন হোম স্ক্রিন থেকে অফলাইনেও পড়া যাবে!');
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('pwa_installed', {});
+        });
+
+        INSTALL_BTNS.forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('click', async () => {
+                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('pwa_install_click', { source: id });
+                if (!installEvt) {
+                    if (window.EBOOK_TOAST) EBOOK_TOAST(isIOS
+                        ? '📲 শেয়ার (⬆️) বোতামে চাপ দিয়ে "হোম স্ক্রিনে যোগ করুন" নির্বাচন করুন'
+                        : 'এই ব্রাউজারে সরাসরি ইনস্টল নেই — Chrome/Edge-এ খুলে মেনুর "Install app" চাপুন');
+                    return;
+                }
+                installEvt.prompt();
+                const { outcome } = await installEvt.userChoice;
+                installEvt = null;
+                if (outcome === 'accepted') hideInstallUI();
+            });
+        });
+        window.EBOOK_INSTALL = { hasPrompt: () => !!installEvt, isStandalone: isStandalone };
+
         // End buttons
         $('#btnEndShare').addEventListener('click', () => openShare(null));
         $('#btnEndRestart').addEventListener('click', () => {
