@@ -42,6 +42,104 @@
   </div>
 </div>`;
 
+    // ── Visual handbook slides (courtesy: fertilizer-handbook-2024) ─
+    // 42 BARC presentation slides, 1376×768 WebP, runtime-cached on demand
+    const SLIDE_COUNT = 42;
+    const bnNum = (n) => String(n).replace(/\d/g, (d) => '০১২৩৪৫৬৭৮৯'[d]);
+    const SLIDE_SRC = (i) => `assets/slides/${String(i).padStart(2, '0')}.webp`;
+    const SLIDE_PDF = 'assets/slides/FRG-2024-Visual-Handbook.pdf';
+
+    function renderSlidesSection() {
+        const tiles = [];
+        for (let i = 1; i <= SLIDE_COUNT; i++) {
+            tiles.push(`
+    <button class="slide-thumb" data-slide="${i}" type="button" aria-label="স্লাইড ${bnNum(i)} দেখুন">
+      <img loading="lazy" src="${SLIDE_SRC(i)}" alt="ভিজ্যুয়াল হ্যান্ডবুক — স্লাইড ${bnNum(i)}" width="1376" height="768">
+      <span class="slide-thumb-num">${bnNum(i)}</span>
+    </button>`);
+        }
+        return `
+<section class="chapter slides-section" id="slides" data-chapter="slides" data-num="স্লাইড">
+  <div class="chapter-header">
+    <span class="chapter-num">স্লাইড</span>
+    <h2 class="chapter-title">ভিজ্যুয়াল হ্যান্ডবুক স্লাইড</h2>
+    <p class="chapter-subtitle">সার সুপারিশমালা হ্যান্ডবই-২০২৪ · টেকসই মৃত্তিকা ব্যবস্থাপনা ও ফসল উৎপাদন — ${bnNum(SLIDE_COUNT)} স্লাইডে ভিজ্যুয়াল উপস্থাপনা</p>
+  </div>
+  <div class="chapter-body">
+    <p class="frg-para">বিএআরসির <b>ভিজ্যুয়াল হ্যান্ডবুক</b> উপস্থাপনার ${bnNum(SLIDE_COUNT)}টি স্লাইড — মাটির পুষ্টি নির্ণায়ক, সুষম সার ব্যবস্থাপনা ও ফসল উৎপাদনের মূল বার্তাগুলো ছবিতে। যেকোনো স্লাইডে চাপ দিলে পুরো পর্দায় খুলে যাবে; ← → বোতাম বা কিবোর্ডের তীর কী দিয়ে এগিয়ে-পিছিয়ে যান।</p>
+    <div class="slides-grid">${tiles.join('')}</div>
+    <div class="slides-pdf-row">
+      <a class="btn-secondary slides-pdf-btn" href="${SLIDE_PDF}" target="_blank" rel="noopener" data-slides-pdf="1">📄 সম্পূর্ণ ভিজ্যুয়াল হ্যান্ডবুক (PDF) দেখুন</a>
+    </div>
+    <p class="slides-credit">উপস্থাপনা: বাংলাদেশ কৃষি গবেষণা কাউন্সিল (বিএআরসি) · সৌজন্যে fertilizer-handbook-2024</p>
+  </div>
+</section>`;
+    }
+
+    // Slide viewer (lightbox)
+    let slideIdx = 0;
+
+    function slideKeyHandler(e) {
+        if (e.key === 'ArrowLeft') slideNav(-1);
+        else if (e.key === 'ArrowRight') slideNav(1);
+        else if (e.key === 'Escape') closeSlideViewer();
+    }
+
+    function paintSlide() {
+        const img = document.getElementById('slideImg');
+        img.src = SLIDE_SRC(slideIdx);
+        img.alt = `ভিজ্যুয়াল হ্যান্ডবুক — স্লাইড ${bnNum(slideIdx)}`;
+        document.getElementById('slideCount').textContent = `স্লাইড ${bnNum(slideIdx)} / ${bnNum(SLIDE_COUNT)}`;
+        // Preload neighbours for snappy navigation
+        [slideIdx - 1, slideIdx + 1].forEach((n) => {
+            if (n >= 1 && n <= SLIDE_COUNT) { const p = new Image(); p.src = SLIDE_SRC(n); }
+        });
+    }
+
+    function slideNav(dir) {
+        const next = slideIdx + dir;
+        if (next < 1 || next > SLIDE_COUNT) return;
+        slideIdx = next;
+        paintSlide();
+    }
+
+    function openSlideViewer(i) {
+        slideIdx = i;
+        let v = document.getElementById('slideViewer');
+        if (!v) {
+            v = document.createElement('div');
+            v.id = 'slideViewer';
+            v.className = 'slide-viewer';
+            v.innerHTML = `
+  <div class="slide-viewer-backdrop" data-slide-close="1"></div>
+  <div class="slide-viewer-bar">
+    <span class="slide-viewer-count" id="slideCount"></span>
+    <a class="slide-viewer-pdf" href="${SLIDE_PDF}" target="_blank" rel="noopener" title="সম্পূর্ণ ভিজ্যুয়াল হ্যান্ডবুক PDF দেখুন">📄 PDF</a>
+    <button class="slide-viewer-close" id="slideClose" type="button" aria-label="বন্ধ করুন">✕</button>
+  </div>
+  <img class="slide-viewer-img" id="slideImg" src="" alt="ভিজ্যুয়াল হ্যান্ডবুক স্লাইড">
+  <button class="slide-viewer-nav slide-prev" id="slidePrev" type="button" aria-label="আগের স্লাইড">‹</button>
+  <button class="slide-viewer-nav slide-next" id="slideNext" type="button" aria-label="পরের স্লাইড">›</button>`;
+            document.body.appendChild(v);
+            v.querySelector('#slideClose').addEventListener('click', closeSlideViewer);
+            v.querySelector('#slidePrev').addEventListener('click', () => slideNav(-1));
+            v.querySelector('#slideNext').addEventListener('click', () => slideNav(1));
+        }
+        paintSlide();
+        v.classList.add('open');
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', slideKeyHandler);
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('slides_open', { slide_index: bnNum(i), total: SLIDE_COUNT });
+    }
+
+    function closeSlideViewer() {
+        const v = document.getElementById('slideViewer');
+        if (v) v.classList.remove('open');
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', slideKeyHandler);
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('slides_close', {});
+    }
+
     function renderBook() {
         const root = $('#bookContent');
         const html = [];
@@ -77,6 +175,7 @@
         html.push(renderChapter(EBOOK_CONTENT.glossary));
         html.push(renderChapter(EBOOK_CONTENT.resources));
         html.push(renderChapter(EBOOK_CONTENT.about));
+        html.push(renderSlidesSection());
 
         root.innerHTML = html.join('\n');
 
@@ -668,6 +767,14 @@
         });
         window.EBOOK_INSTALL = { hasPrompt: () => !!installEvt, isStandalone: isStandalone };
 
+        // Slides: thumbnails open the lightbox; PDF link tracked
+        document.addEventListener('click', (e) => {
+            const thumb = e.target.closest('.slide-thumb');
+            if (thumb) { openSlideViewer(parseInt(thumb.dataset.slide, 10)); return; }
+            const pdf = e.target.closest('[data-slides-pdf]');
+            if (pdf && window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('slides_pdf_click', {});
+        });
+
         // End buttons
         $('#btnEndShare').addEventListener('click', () => openShare(null));
         $('#btnEndRestart').addEventListener('click', () => {
@@ -810,8 +917,8 @@
 
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
-            // Ignore when typing in inputs
-            if (e.target.matches('input, textarea, select')) return;
+            // Ignore when typing in inputs (target may be document/window for synthetic events)
+            if (e.target instanceof Element && e.target.matches('input, textarea, select')) return;
             switch (e.key) {
                 case 'Escape':
                     if ($('#shareModal').classList.contains('visible')) closeShare();
@@ -854,6 +961,8 @@
     // ── Init ───────────────────────────────────────────────────
     function init() {
         renderBook();
+        // Slides appendix entry (rendered by renderSlidesSection above)
+        EBOOK_TOC.push({ id: 'slides', num: 'স্লাইড', title: 'ভিজ্যুয়াল হ্যান্ডবুক স্লাইড', sub: `${bnNum(SLIDE_COUNT)} স্লাইডে ভিজ্যুয়াল উপস্থাপনা` });
         renderToc();
         applySettings();
         wireEvents();
