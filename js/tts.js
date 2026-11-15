@@ -140,19 +140,30 @@
         },
 
         stop() {
+            // Detach handlers so a cancel-triggered onend can't advance chunks
+            if (this.utterance) {
+                this.utterance.onend = null;
+                this.utterance.onerror = null;
+            }
             if (this.synth) this.synth.cancel();
             this.isPlaying = false;
             this.isPaused = false;
             this.currentChunkIndex = 0;
             this.utterance = null;
+            clearTimeout(this._restartT);
         },
 
         setSpeed(speed) {
             this.currentSpeed = speed;
             // If playing, restart current chunk with new speed
             if (this.isPlaying && !this.isPaused) {
+                if (this.utterance) {
+                    this.utterance.onend = null;
+                    this.utterance.onerror = null;
+                }
                 this.synth.cancel();
-                this._speakNext();
+                clearTimeout(this._restartT);
+                this._restartT = setTimeout(() => this._speakNext(), 60);
             }
         },
 

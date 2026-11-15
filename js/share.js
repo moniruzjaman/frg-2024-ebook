@@ -5,6 +5,22 @@
    ============================================================ */
 
 (function () {
+    // ── Toast helper (shared with reader.js) ───────────────────
+    window.EBOOK_TOAST = function (msg) {
+        let t = document.getElementById('ebookToast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'ebookToast';
+            t.className = 'ebook-toast';
+            t.setAttribute('role', 'status');
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(window.__ebookToastT);
+        window.__ebookToastT = setTimeout(() => t.classList.remove('show'), 2800);
+    };
+
     const SHARE = {
         url:   'https://moniruzjaman.github.io/frg-2024-ebook/',
         title: 'সার সুপারিশমালা হ্যান্ডবই-২০২৪ — বাংলা ই-বুক',
@@ -44,6 +60,28 @@
             const top  = (screen.height / 2) - (h / 2) - 50;
             return window.open(url, '_blank',
                 `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,resizable=yes,scrollbars=yes`);
+        },
+
+        shareMessenger() {
+            const isMobile = /Android|iPhone|iPad|iPod|Opera Mini/i.test(navigator.userAgent);
+            const desktopFallback = () => {
+                // No app_id-free Messenger share dialog exists for desktop —
+                // copy the link and let the user paste it in Messenger
+                this.copyLink().then(() => {
+                    if (window.EBOOK_TOAST) window.EBOOK_TOAST('লিঙ্ক কপি হয়েছে — Messenger-এ প্রিয়জনকে পাঠিয়ে দিন');
+                    this.openPopup('https://www.messenger.com/', 920, 700);
+                });
+            };
+            if (isMobile) {
+                const t0 = Date.now();
+                // Try the Messenger app intent; if the app is missing, fall back
+                setTimeout(() => {
+                    if (!document.hidden && Date.now() - t0 < 2500) desktopFallback();
+                }, 1800);
+                window.location.href = 'fb-messenger://share/?link=' + encodeURIComponent(this.url);
+            } else {
+                desktopFallback();
+            }
         },
 
         async copyLink() {
@@ -93,8 +131,10 @@
             }
 
             switch (platform) {
-                case 'whatsapp':
                 case 'messenger':
+                    this.shareMessenger();
+                    return true;
+                case 'whatsapp':
                 case 'facebook':
                 case 'linkedin':
                 case 'twitter':

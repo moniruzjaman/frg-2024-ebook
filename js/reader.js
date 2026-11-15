@@ -283,6 +283,11 @@
                 }
             }
         }
+
+        // Back-to-top FAB + chapter quick-nav
+        const fabTop = $('#fabTop');
+        if (fabTop) fabTop.classList.toggle('visible', scrollTop > 700);
+        updateChapterNav();
     }
 
     function updateActiveToc(chapterId) {
@@ -301,9 +306,126 @@
         }
     }
 
+    // ── Interactive widgets: quiz score + saved state ─────────
+    function updateQuizScore() {
+        const el = $('#quizScore');
+        if (!el) return;
+        const questions = $$('.quiz-question');
+        if (!questions.length) return;
+        const answered = questions.filter(q => q.classList.contains('answered')).length;
+        const correct = questions.filter(q => q.classList.contains('answered') && q.dataset.chosen === q.dataset.correct).length;
+        let suffix = '';
+        if (answered === questions.length) {
+            suffix = correct === questions.length
+                ? ' · 🎉 অভিনন্দন — সবগুলো সঠিক!'
+                : ' · ব্যাখ্যাগুলো পড়ে সংশ্লিষ্ট অধ্যায় আবার দেখুন';
+        }
+        el.innerHTML = 'উত্তর দেওয়া হয়েছে: <b>' + answered + '</b>/১০ · সঠিক উত্তর: <b>' + correct + '</b>' + suffix;
+    }
+
+    function restoreInteractivity() {
+        // Action plan checks
+        const done = JSON.parse(localStorage.getItem('ebook-actionplan') || '[]');
+        const rows = $$('.action-row');
+        done.forEach(i => {
+            if (rows[i]) rows[i].querySelector('.check')?.classList.add('done');
+        });
+        // Quiz answers
+        const answers = JSON.parse(localStorage.getItem('ebook-quiz') || '[]');
+        const questions = $$('.quiz-question');
+        questions.forEach((q, qi) => {
+            const chosen = answers[qi];
+            if (chosen === undefined || chosen === null) return;
+            const options = $$('.quiz-options li', q);
+            if (!options[chosen]) return;
+            const correct = parseInt(q.dataset.correct, 10);
+            q.classList.add('answered');
+            q.dataset.chosen = String(chosen);
+            options.forEach((li, i) => {
+                if (i === correct) li.classList.add('correct');
+                if (i === chosen && chosen !== correct) li.classList.add('wrong');
+            });
+            q.querySelector('.quiz-explain')?.classList.add('show');
+        });
+        updateQuizScore();
+    }
+
+    // ── Chapter quick navigation (bottom bar) ─────────────────
+    let navBusy = false;
+
+    function navSections() {
+        return $$('section.chapter');
+    }
+
+    function gotoChapter(id) {
+        closeToc();
+        closeSettings();
+        closeShare();
+        const el = document.getElementById(id);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+            history.replaceState(null, '', '#' + id);
+        }
+    }
+
+    function gotoChapterNav(dir) {
+        // Ignore extra presses while a smooth scroll is in flight —
+        // otherwise the scroll-spy's mid-flight position causes skips
+        if (navBusy) return;
+        const sections = navSections();
+        const idx = sections.findIndex(s => s.id === state.currentChapter);
+        if (idx < 0) return;
+        const target = sections[idx + dir];
+        if (!target) return;
+        navBusy = true;
+        gotoChapter(target.id);
+        const clear = () => {
+            navBusy = false;
+            window.removeEventListener('scrollend', clear);
+        };
+        window.addEventListener('scrollend', clear);
+        setTimeout(clear, 2500); // safety for browsers without scrollend
+    }
+
+    function updateChapterNav() {
+        const nav = $('#chapterNav');
+        if (!nav) return;
+        const cur = state.currentChapter;
+        if (!cur || cur === 'hero') { nav.classList.remove('visible'); return; }
+        const sections = navSections();
+        const idx = sections.findIndex(s => s.id === cur);
+        if (idx < 0) { nav.classList.remove('visible'); return; }
+        const btnP = $('#chNavPrev'), btnN = $('#chNavNext');
+        const prev = sections[idx - 1], next = sections[idx + 1];
+        const labelFor = (s) => {
+            const t = (s.querySelector('.chapter-title')?.textContent || '').trim();
+            return (s.dataset.num || '') + ' · ' + (t.length > 26 ? t.slice(0, 26) + '…' : t);
+        };
+        if (prev) {
+            btnP.style.display = '';
+            $('#chNavPrevLabel').textContent = labelFor(prev);
+        } else {
+            btnP.style.display = 'none';
+        }
+        if (next) {
+            btnN.style.display = '';
+            $('#chNavNextLabel').textContent = labelFor(next);
+        } else {
+            btnN.style.display = 'none';
+        }
+        nav.classList.add('visible');
+    }
+
     // ── Event wiring ───────────────────────────────────────────
     function wireEvents() {
         // Topbar
+        $('#btnHome').addEventListener('click', () => {
+            closeToc();
+            closeSettings();
+            closeShare();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            history.replaceState(null, '', '#');
+        });
         $('#btnToc').addEventListener('click', openToc);
         $('#btnCloseToc').addEventListener('click', closeToc);
         $('#tocOverlay').addEventListener('click', closeToc);
@@ -312,8 +434,8 @@
         $('#btnCloseSettings').addEventListener('click', closeSettings);
         $('#settingsOverlay').addEventListener('click', closeSettings);
 
-        $('#btnShare').addEventListener('click', () => openShare(state.currentChapter));
-        $('#fabShare').addEventListener('click', () => openShare(state.currentChapter));
+        $('#btnShare').addEventListener('click', () => openShare(state.currentChapter === 'hero' ? null : state.currentChapter));
+        $('#fabShare').addEventListener('click', () => openShare(state.currentChapter === 'hero' ? null : state.currentChapter));
         $('#btnCloseShare').addEventListener('click', closeShare);
         $('#shareModal').addEventListener('click', (e) => {
             if (e.target.id === 'shareModal') closeShare();
@@ -341,11 +463,14 @@
                     setAudioPlayIcon(false);
                 }
             } else if (EBOOK_TTS.currentChapter) {
-                EBOOK_TTS.resume();
-                setAudioPlayIcon(true);
+                // Narration had ended — restart the chapter from the beginning
+                startChapterAudio(EBOOK_TTS.currentChapter);
             }
         });
         $('#audioStop').addEventListener('click', stopAudio);
+        $('#fabTop').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+        $('#chNavPrev').addEventListener('click', () => gotoChapterNav(-1));
+        $('#chNavNext').addEventListener('click', () => gotoChapterNav(1));
         $('#audioSpeed').addEventListener('change', (e) => {
             state.audio.speed = parseFloat(e.target.value);
             EBOOK_TTS.setSpeed(state.audio.speed);
@@ -485,25 +610,41 @@
             }
         });
 
-        // Track action plan checkbox clicks
+        // Action plan: toggle check + persist
         document.addEventListener('click', (e) => {
             const checkCell = e.target.closest('.action-row .check');
-            if (checkCell) {
-                const row = checkCell.closest('.action-row');
-                const day = row?.querySelector('.day')?.textContent || 'unknown';
-                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.actionPlanCheck(day);
-            }
+            if (!checkCell) return;
+            checkCell.classList.toggle('done');
+            const done = $$('.action-row')
+                .map((r, i) => r.querySelector('.check')?.classList.contains('done') ? i : -1)
+                .filter(i => i >= 0);
+            localStorage.setItem('ebook-actionplan', JSON.stringify(done));
+            const day = checkCell.closest('.action-row')?.querySelector('.day')?.textContent || 'unknown';
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.actionPlanCheck(day);
         });
 
-        // Track quiz option clicks
+        // Quiz: reveal correct answer + explanation on first choice
         document.addEventListener('click', (e) => {
             const opt = e.target.closest('.quiz-options li');
-            if (opt) {
-                const question = opt.closest('.quiz-question');
-                const qNum = question?.querySelector('.qlabel')?.textContent?.match(/\d+/)?.[0] || '0';
-                const answer = opt.textContent.trim().slice(0, 80);
-                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.quizAttempt(qNum, answer);
-            }
+            if (!opt) return;
+            const question = opt.closest('.quiz-question');
+            if (!question || question.classList.contains('answered')) return;
+            question.classList.add('answered');
+            const correct = parseInt(question.dataset.correct, 10);
+            const options = $$('.quiz-options li', question);
+            const chosen = options.indexOf(opt);
+            question.dataset.chosen = String(chosen);
+            options.forEach((li, i) => {
+                if (i === correct) li.classList.add('correct');
+                if (i === chosen && chosen !== correct) li.classList.add('wrong');
+            });
+            question.querySelector('.quiz-explain')?.classList.add('show');
+            const qNum = question.querySelector('.qlabel')?.textContent?.match(/\d+/)?.[0] || '0';
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.quizAttempt(qNum, opt.textContent.trim().slice(0, 80));
+            const answers = JSON.parse(localStorage.getItem('ebook-quiz') || '[]');
+            answers[$$('.quiz-question').indexOf(question)] = chosen;
+            localStorage.setItem('ebook-quiz', JSON.stringify(answers));
+            updateQuizScore();
         });
 
         // Scroll
@@ -536,6 +677,12 @@
                         startChapterAudio(state.currentChapter);
                     }
                     break;
+                case 'ArrowLeft':
+                    if (!e.altKey && !e.ctrlKey && !e.metaKey) gotoChapterNav(-1);
+                    break;
+                case 'ArrowRight':
+                    if (!e.altKey && !e.ctrlKey && !e.metaKey) gotoChapterNav(1);
+                    break;
             }
         });
     }
@@ -546,6 +693,7 @@
         renderToc();
         applySettings();
         wireEvents();
+        restoreInteractivity();
         onScroll();
 
         // Open chapter from URL hash
