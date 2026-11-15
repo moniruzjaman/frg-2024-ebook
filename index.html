@@ -53,11 +53,12 @@
 <meta name="thumbnail" content="https://moniruzjaman.github.io/frg-2024-ebook/og-image.jpg">
 <link rel="image_src" href="https://moniruzjaman.github.io/frg-2024-ebook/og-image.jpg">
 
-<!-- iOS / Android app linking hints -->
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="স্বশিক্ষা কৃষি">
+<!-- PWA / app-mode hints (mobile first, installable) -->
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="সার হ্যান্ডবই">
+<meta name="application-name" content="সার হ্যান্ডবই">
 
 <!-- Icons -->
 <link rel="icon" type="image/png" href="favicon.png">
@@ -156,6 +157,10 @@
     <!-- Populated by JS -->
   </nav>
   <div class="toc-sidebar-foot">
+    <div class="toc-collapse-actions">
+      <button class="toc-mini-btn" id="tocExpandAll" type="button">সব অধ্যায় খুলুন</button>
+      <button class="toc-mini-btn" id="tocCollapseAll" type="button">সব বন্ধ করুন</button>
+    </div>
     <button class="btn-primary btn-start" id="btnStartReading">পড়া শুরু করুন</button>
   </div>
 </aside>
@@ -413,6 +418,24 @@
 <script src="js/tts.js" defer></script>
 <script src="js/share.js" defer></script>
 <script src="js/reader.js" defer></script>
+
+<!-- ============================================================
+     PWA — Service Worker registration (offline reading + install)
+     ============================================================ -->
+<script defer>
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then((reg) => {
+                if (reg.active && !sessionStorage.getItem('sw-toast-shown')) {
+                    sessionStorage.setItem('sw-toast-shown', '1');
+                    if (window.EBOOK_TOAST) window.EBOOK_TOAST('✓ ই-বুক অফলাইনে পড়ার জন্য সংরক্ষিত হয়েছে');
+                }
+            })
+            .catch(() => {});
+    });
+}
+</script>
 
 </body>
 </html>

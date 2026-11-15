@@ -1,9 +1,10 @@
 {
+  "id": "./",
   "name": "সার সুপারিশমালা হ্যান্ডবই-২০২৪",
   "short_name": "সার হ্যান্ডবই",
   "description": "বিএআরসি প্রকাশিত FRG-2024 — পড়ুন, শুনুন, শেয়ার করুন।",
-  "start_url": "/frg-2024-ebook/",
-  "scope": "/frg-2024-ebook/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#FBFAF6",
@@ -13,20 +14,28 @@
   "categories": ["education", "books", "agriculture"],
   "icons": [
     {
-      "src": "favicon.png",
-      "sizes": "32x32",
-      "type": "image/png"
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "og-image.jpg",
-      "sizes": "1200x630",
-      "type": "image/jpeg",
-      "purpose": "any maskable"
+      "src": "icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

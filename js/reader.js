@@ -27,6 +27,9 @@
     };
 
     // ── Render book content ────────────────────────────────────
+    // Official front-matter sections start collapsed (expandable)
+    const DEFAULT_COLLAPSED = ['fm-pub', 'fm-bani', 'fm-mukho'];
+
     function renderBook() {
         const root = $('#bookContent');
         const html = [];
@@ -35,15 +38,21 @@
             const epigraph = ch.epigraph
                 ? `<div class="epigraph">${ch.epigraph}</div>`
                 : '';
+            const collapsed = DEFAULT_COLLAPSED.includes(ch.id);
             return `
-<section class="chapter" id="${ch.id}" data-chapter="${ch.id}" data-num="${ch.numLabel}">
-  <div class="chapter-header">
-    <span class="chapter-num">${ch.numLabel}</span>
-    <h2 class="chapter-title">${ch.title}</h2>
-    <p class="chapter-subtitle">${ch.subtitle}</p>
+<section class="chapter${collapsed ? ' is-collapsed' : ''}" id="${ch.id}" data-chapter="${ch.id}" data-num="${ch.numLabel}">
+  <div class="chapter-toggle" role="button" tabindex="0" aria-expanded="${collapsed ? 'false' : 'true'}" aria-controls="${ch.id}-body" title="খুলতে/বন্ধ করতে ক্লিক করুন">
+    <div class="chapter-header">
+      <span class="chapter-num">${ch.numLabel}</span>
+      <h2 class="chapter-title">${ch.title}</h2>
+      <p class="chapter-subtitle">${ch.subtitle}</p>
+    </div>
+    <span class="chapter-chevron" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </span>
   </div>
   ${epigraph}
-  <div class="chapter-body">${ch.html}</div>
+  <div class="chapter-body" id="${ch.id}-body">${ch.html}</div>
 </section>`;
         };
 
@@ -58,6 +67,17 @@
         html.push(renderChapter(EBOOK_CONTENT.about));
 
         root.innerHTML = html.join('\n');
+
+        // Mobile-first: wrap wide tables in horizontally scrollable containers
+        $$('table', root).forEach((t) => {
+            if (t.parentElement && t.parentElement.classList.contains('table-scroll')) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'table-scroll';
+            t.parentNode.insertBefore(wrap, t);
+            wrap.appendChild(t);
+        });
+
+        restoreCollapse();
     }
 
     // ── Render TOC sidebar ─────────────────────────────────────
@@ -350,6 +370,42 @@
         updateQuizScore();
     }
 
+    // ── Collapsible chapters ──────────────────────────────────
+    function saveCollapsed() {
+        localStorage.setItem('ebook-collapsed', JSON.stringify($$('.chapter.is-collapsed').map(s => s.id)));
+    }
+
+    function setCollapsed(section, collapsed) {
+        if (!section) return;
+        section.classList.toggle('is-collapsed', collapsed);
+        section.querySelector('.chapter-toggle')?.setAttribute('aria-expanded', String(!collapsed));
+    }
+
+    function toggleChapter(toggleEl) {
+        const section = toggleEl.closest('section.chapter');
+        if (!section) return;
+        setCollapsed(section, !section.classList.contains('is-collapsed'));
+        saveCollapsed();
+    }
+
+    function restoreCollapse() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem('ebook-collapsed')); } catch (_) { /* ignore */ }
+        if (!Array.isArray(saved)) return; // first visit — keep rendered defaults
+        $$('.chapter').forEach((s) => setCollapsed(s, saved.includes(s.id)));
+    }
+
+    function expandAllChapters() {
+        $$('.chapter').forEach((s) => setCollapsed(s, false));
+        saveCollapsed();
+    }
+
+    function collapseAllChapters() {
+        // Never collapse the chapter the reader is currently in
+        $$('.chapter').forEach((s) => setCollapsed(s, s.id !== state.currentChapter));
+        saveCollapsed();
+    }
+
     // ── Chapter quick navigation (bottom bar) ─────────────────
     let navBusy = false;
 
@@ -363,6 +419,11 @@
         closeShare();
         const el = document.getElementById(id);
         if (el) {
+            // Auto-expand collapsed targets (e.g., TOC link to an intro)
+            if (el.classList.contains('is-collapsed')) {
+                setCollapsed(el, false);
+                saveCollapsed();
+            }
             el.scrollIntoView({ behavior: 'smooth' });
             history.replaceState(null, '', '#' + id);
         }
@@ -587,18 +648,14 @@
             }, 800);
         });
 
-        // TOC item clicks (smooth scroll + close sidebar)
+        // TOC item clicks (smooth scroll + close sidebar + expand target)
         document.addEventListener('click', (e) => {
             const tocItem = e.target.closest('.toc-item');
             if (tocItem) {
                 e.preventDefault();
                 const target = tocItem.dataset.target;
-                closeToc();
                 if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.tocNavigate(target);
-                setTimeout(() => {
-                    document.getElementById(target)?.scrollIntoView({ behavior: 'smooth' });
-                    history.replaceState(null, '', '#' + target);
-                }, 200);
+                setTimeout(() => gotoChapter(target), 200);
             }
         });
 
@@ -647,6 +704,22 @@
             updateQuizScore();
         });
 
+        // Collapsible chapters: header click toggle
+        document.addEventListener('click', (e) => {
+            const toggle = e.target.closest('.chapter-toggle');
+            if (toggle) toggleChapter(toggle);
+        });
+
+        // TOC footer: expand / collapse all sections
+        $('#tocExpandAll').addEventListener('click', () => {
+            expandAllChapters();
+            closeToc();
+        });
+        $('#tocCollapseAll').addEventListener('click', () => {
+            collapseAllChapters();
+            closeToc();
+        });
+
         // Scroll
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', onScroll, { passive: true });
@@ -683,6 +756,13 @@
                 case 'ArrowRight':
                     if (!e.altKey && !e.ctrlKey && !e.metaKey) gotoChapterNav(1);
                     break;
+                case 'Enter':
+                case ' ':
+                    if (e.target.classList && e.target.classList.contains('chapter-toggle')) {
+                        e.preventDefault();
+                        toggleChapter(e.target);
+                    }
+                    break;
             }
         });
     }
@@ -696,12 +776,10 @@
         restoreInteractivity();
         onScroll();
 
-        // Open chapter from URL hash
+        // Open chapter from URL hash (auto-expands collapsed sections)
         const hash = window.location.hash.slice(1);
         if (hash) {
-            setTimeout(() => {
-                document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth' });
-            }, 400);
+            setTimeout(() => gotoChapter(hash), 400);
         }
 
         // Pre-warm TTS voices

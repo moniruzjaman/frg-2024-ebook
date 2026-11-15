@@ -1733,3 +1733,109 @@ body.audio-visible .ebook-toast { bottom: calc(var(--audio-h) + 74px); }
 @media print {
     .chapter-nav, .fab-top, .ebook-toast { display: none !important; }
 }
+
+/* ============================================================
+   FRG-2024 v3 — PWA mobile-first, collapsible sections
+   ============================================================ */
+
+/* ── Collapsible chapters ────────────────────────────────── */
+.chapter-toggle {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    border-radius: 10px;
+    padding: 2px;
+    margin: -2px;
+    transition: background 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+.chapter-toggle:hover { background: var(--c-primary-50); }
+.chapter-toggle:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
+.chapter-toggle .chapter-header { flex: 1; min-width: 0; }
+.chapter-chevron {
+    flex: none;
+    color: var(--c-primary);
+    margin-top: 8px;
+    transition: transform 0.25s ease;
+}
+.chapter.is-collapsed .chapter-chevron { transform: rotate(-90deg); }
+.chapter.is-collapsed .chapter-body,
+.chapter.is-collapsed .epigraph { display: none; }
+.chapter.is-collapsed .chapter-toggle:hover { background: var(--c-primary-50); }
+.chapter.is-collapsed .chapter-subtitle {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Wide tables: horizontal scroll on phones ────────────── */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--c-line);
+    border-radius: 8px;
+    margin: 0 0 14px;
+}
+.table-scroll > table {
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+}
+.table-scroll > table th,
+.table-scroll > table td { max-width: 340px; }
+
+/* ── TOC footer: expand/collapse-all buttons ─────────────── */
+.toc-collapse-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.toc-mini-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--c-line);
+    border-radius: 8px;
+    color: var(--c-primary);
+    font-family: var(--font-head);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 9px 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+.toc-mini-btn:hover { background: var(--c-primary-50); }
+
+/* ── Safe-area (notched phones, PWA standalone mode) ─────── */
+.topbar {
+    height: calc(var(--topbar-h) + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+}
+body { padding-top: calc(var(--topbar-h) + env(safe-area-inset-top)); }
+.audio-bar { padding-bottom: env(safe-area-inset-bottom); }
+.fab-share, .fab-top { bottom: calc(16px + env(safe-area-inset-bottom)); }
+body.audio-visible .fab-share,
+body.audio-visible .fab-top { bottom: calc(var(--audio-h) + 16px + env(safe-area-inset-bottom)); }
+.chapter-nav { bottom: calc(14px + env(safe-area-inset-bottom)); }
+body.audio-visible .chapter-nav { bottom: calc(var(--audio-h) + 12px + env(safe-area-inset-bottom)); }
+.ebook-toast { bottom: calc(74px + env(safe-area-inset-bottom)); }
+
+/* ── Mobile-first polish ─────────────────────────────────── */
+@media (max-width: 600px) {
+    .topbar { padding: 0 8px; }
+    .topbar-actions { gap: 0; }
+    .chapter-toggle { gap: 8px; }
+    .chapter.is-collapsed .chapter-subtitle { font-size: 11px; }
+    .table-scroll > table th,
+    .table-scroll > table td { max-width: 260px; }
+}
+
+/* ── Print: show everything, drop toggles ────────────────── */
+@media print {
+    .chapter.is-collapsed .chapter-body,
+    .chapter.is-collapsed .epigraph { display: block !important; }
+    .chapter-chevron, .chapter-toggle { visibility: hidden; }
+}
