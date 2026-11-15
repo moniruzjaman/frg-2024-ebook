@@ -584,6 +584,14 @@
             document.getElementById('ch1')?.scrollIntoView({ behavior: 'smooth' });
         });
 
+        // Companion web app links (hero + book-end)
+        ['btnHeroApp', 'btnEndApp'].forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener('click', () => {
+                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('handbook_app_click', { source: id });
+            });
+        });
+
         // End buttons
         $('#btnEndShare').addEventListener('click', () => openShare(null));
         $('#btnEndRestart').addEventListener('click', () => {

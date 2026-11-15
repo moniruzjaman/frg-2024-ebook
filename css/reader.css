@@ -1718,6 +1718,10 @@ body.audio-visible .chapter-nav { bottom: calc(var(--audio-h) + 12px); }
 .ebook-toast.show { opacity: 1; transform: translate(-50%, 0); }
 body.audio-visible .ebook-toast { bottom: calc(var(--audio-h) + 74px); }
 
+/* ── Companion app links (anchor buttons render like buttons) ── */
+.hero-actions a.btn-hero,
+.book-end-actions a.btn-secondary { text-decoration: none; }
+
 /* ── Room for the bottom quick-nav above content end ─────── */
 .book-content { padding-bottom: 120px; }
 

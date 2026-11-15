@@ -1,54 +1,36 @@
 /* ============================================================
-   Analytics — Google Analytics 4 event tracking
-   ID: G-GJLZ04PSC1
+   Analytics — reader events → GTM dataLayer (GTM-MVB23SLK)
+   The GTM tag is installed in <head> of index.html. Every event
+   below is pushed as a GTM-native custom event, e.g.
+   { event: 'chapter_read', chapter_id: 'ch1', ... }
    Tracks: page_view, chapter_read, reading_progress,
            tts_play, tts_pause, tts_complete,
            share_click, share_complete,
            quiz_attempt, action_plan_check,
            theme_change, font_change, settings_change,
-           toc_open, external_link
+           toc_open, external_link, handbook_app_click
    ============================================================ */
 
 (function () {
-    const GA_ID = '';  // ← GA4 হিসাব যোগ করলে এখানে Measurement ID (G-XXXXXX) বসান
-    if (!GA_ID) { window.EBOOK_ANALYTICS = null; return; }
+    const GTM_ID = 'GTM-MVB23SLK';  // tag loaded from index.html <head>
+    if (!window.dataLayer) { window.EBOOK_ANALYTICS = null; return; }
 
-    // ── Load GA4 script ────────────────────────────────────────
-    function loadGA() {
-        // Standard gtag.js loader
-        const s = document.createElement('script');
-        s.async = true;
-        s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_ID;
-        document.head.appendChild(s);
-
-        window.dataLayer = window.dataLayer || [];
-        window.gtag = function () {
-            window.dataLayer.push(arguments);
-        };
-        window.gtag('js', new Date());
-
-        // Configure with Bengali locale & anonymize IP for privacy
-        window.gtag('config', GA_ID, {
-            'page_title': document.title,
-            'language': 'bn-BD',
-            'anonymize_ip': true,
-            'allow_google_signals': true,
-            'send_page_view': true  // auto page_view event
-        });
-
-        console.log('%c📊 GA4 analytics loaded', 'color:#1E8449;font-weight:bold', GA_ID);
+    // Fallback shim — if the head snippet is ever removed, events
+    // still land in the GTM dataLayer
+    if (typeof window.gtag !== 'function') {
+        window.gtag = function () { window.dataLayer.push(arguments); };
     }
 
     // ── Event tracking helpers ─────────────────────────────────
     const EBOOK_ANALYTICS = {
-        GA_ID: GA_ID,
+        GTM_ID: GTM_ID,
         loaded: false,
         lastProgress: {},  // track last reported progress per chapter
 
         init() {
             if (this.loaded) return;
-            loadGA();
             this.loaded = true;
+            console.log('%c📊 E-book analytics → GTM dataLayer', 'color:#1E8449;font-weight:bold', GTM_ID);
         },
 
         /**
@@ -57,18 +39,15 @@
          * @param {object} params - event parameters
          */
         event(name, params = {}) {
-            if (typeof window.gtag !== 'function') {
-                console.warn('gtag not loaded yet, event queued:', name);
-                return;
-            }
-            // GA4 requires param values to be strings/numbers/booleans
-            const clean = {};
+            if (!window.dataLayer) return;
+            // GTM-native custom event: { event: 'chapter_read', ...params }
+            const clean = { event: name };
             for (const [k, v] of Object.entries(params)) {
                 if (v == null) continue;
                 if (typeof v === 'object') v = JSON.stringify(v);
                 clean[k] = v;
             }
-            window.gtag('event', name, clean);
+            window.dataLayer.push(clean);
         },
 
         // ── Specific event helpers ────────────────────────────
