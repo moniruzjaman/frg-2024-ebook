@@ -6,7 +6,7 @@
    - Stale-while-revalidate for same-origin assets
    ============================================================ */
 
-const VERSION = 'frg-ebook-v3.1.8';
+const VERSION = 'frg-ebook-v3.1.9';
 const CORE_CACHE = VERSION + '-core';
 const RUNTIME_CACHE = VERSION + '-runtime';
 

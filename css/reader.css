@@ -2495,3 +2495,8 @@ mark.hl-o { background: #F6DCAD; }
     .official-card { padding: 12px; gap: 10px; }
     .official-card-icon { width: 28px; height: 28px; padding: 6px; }
 }
+
+/* Hero: official FRS-BD link (gold-accented secondary button) */
+.btn-hero-official { border-color: rgba(236, 201, 25, 0.85); }
+.btn-hero-official svg { color: var(--c-accent); }
+.btn-hero-official:hover { background: rgba(236, 201, 25, 0.14); box-shadow: 0 6px 18px rgba(236, 201, 25, 0.2); }

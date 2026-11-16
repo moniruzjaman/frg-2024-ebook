@@ -746,11 +746,11 @@
             }
         });
 
-        // Official fertilizer recommendation card (FRS-BD) — About section + book-end
+        // Official fertilizer recommendation card (FRS-BD) — hero + About section + book-end
         document.addEventListener('click', (e) => {
-            const card = e.target.closest('.official-card');
+            const card = e.target.closest('[data-official-link]');
             if (card && window.EBOOK_ANALYTICS) {
-                const source = card.closest('.book-end') ? 'book_end' : 'about';
+                const source = card.id === 'btnHeroFrs' ? 'hero' : (card.closest('.book-end') ? 'book_end' : 'about');
                 EBOOK_ANALYTICS.event('frs_bd_click', { source });
             }
         });
@@ -759,7 +759,7 @@
         // Shown only when the browser allows install: on
         // beforeinstallprompt (Android/desktop Chrome/Edge) or on
         // iOS Safari, where a manual guide is offered instead.
-        const INSTALL_BTNS = ['btnInstallTop', 'btnHeroInstall', 'btnEndInstall'];
+        const INSTALL_BTNS = ['btnInstallTop', 'btnEndInstall'];
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches
             || window.navigator.standalone === true;
         const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
