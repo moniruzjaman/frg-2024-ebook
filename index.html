@@ -141,6 +141,12 @@
     <span class="topbar-title-sub" id="topbarChapter">ফসলের সুষম সার ব্যবহারের সম্পূর্ণ নির্দেশিকা — বিএআরসি</span>
   </div>
   <div class="topbar-actions">
+    <button class="icon-btn" id="btnSearch" aria-label="অনুসন্ধান" title="বইতে খুঁজুন (/)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+    <button class="icon-btn" id="btnBookmark" aria-label="বুকমার্ক" title="এই অধ্যায় বুকমার্ক করুন (B)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    </button>
     <button class="icon-btn install-btn" id="btnInstallTop" aria-label="অ্যাপ হিসেবে ইনস্টল করুন" title="অ্যাপ হিসেবে ইনস্টল করুন — পরে অফলাইনে পড়ুন">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     </button>
@@ -171,6 +177,7 @@
   </nav>
   <div class="toc-sidebar-foot">
     <div class="toc-collapse-actions">
+      <button class="toc-mini-btn" id="btnNotesToc" type="button">নোট ও হাইলাইট</button>
       <button class="toc-mini-btn" id="tocExpandAll" type="button">সব অধ্যায় খুলুন</button>
       <button class="toc-mini-btn" id="tocCollapseAll" type="button">সব বন্ধ করুন</button>
     </div>
@@ -233,8 +240,80 @@
       <button class="font-btn" data-font="sans">স্যান্স (Noto Sans Bengali)</button>
     </div>
   </div>
+
+  <div class="settings-section">
+    <label class="settings-label">কীবোর্ড শর্টকাট</label>
+    <div class="shortcut-grid">
+      <span><kbd>/</kbd> খুঁজুন</span>
+      <span><kbd>M</kbd> সূচিপত্র</span>
+      <span><kbd>B</kbd> বুকমার্ক</span>
+      <span><kbd>T</kbd> শুনুন</span>
+      <span><kbd>←</kbd> <kbd>→</kbd> অধ্যায় বদল</span>
+      <span><kbd>S</kbd> সেটিংস</span>
+      <span><kbd>Esc</kbd> বন্ধ</span>
+    </div>
+  </div>
 </aside>
 <div class="settings-overlay" id="settingsOverlay"></div>
+
+<!-- ============================================================
+     SEARCH MODAL
+     ============================================================ -->
+<div class="search-modal" id="searchModal" role="dialog" aria-label="বইতে অনুসন্ধান">
+  <div class="search-sheet">
+    <div class="search-head">
+      <div class="search-input-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="searchInput" placeholder="অধ্যায়, ফসল, সার বা যেকোনো শব্দ খুঁজুন…" autocomplete="off">
+        <button class="icon-btn search-clear" id="btnSearchClear" aria-label="মুছুন">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <button class="icon-btn" id="btnCloseSearch" aria-label="বন্ধ করুন">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="search-meta" id="searchMeta">কমপক্ষে ২ অক্ষর লিখুন — ৩৬টি অধ্যায় ও ১৫০+ সারণির সম্পূর্ণ পাঠ্যে অনুসন্ধান</div>
+    <div class="search-results" id="searchResults"></div>
+    <div class="search-foot">এন্টারে প্রথম ফলাফলে যান · Esc বন্ধ</div>
+  </div>
+</div>
+
+<!-- ============================================================
+     HIGHLIGHTS & NOTES MODAL
+     ============================================================ -->
+<div class="notes-modal" id="notesModal" role="dialog" aria-label="আমার হাইলাইট ও নোট">
+  <div class="notes-sheet">
+    <div class="notes-head">
+      <h2 class="notes-title">আমার হাইলাইট ও নোট</h2>
+      <div class="notes-head-actions">
+        <button class="toc-mini-btn" id="btnNotesExport" type="button">কপি করুন</button>
+        <button class="icon-btn" id="btnCloseNotes" aria-label="বন্ধ করুন">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="notes-body" id="notesBody"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     HIGHLIGHT SELECTION TOOLBAR + RESUME TOAST
+     ============================================================ -->
+<div class="hl-toolbar" id="hlToolbar" role="toolbar" aria-label="হাইলাইট টুলবার">
+  <button class="hl-btn" type="button" data-hl-color="y">হলুদ</button>
+  <button class="hl-btn" type="button" data-hl-color="g">সবুজ</button>
+  <button class="hl-btn" type="button" data-hl-color="o">সোনালি</button>
+  <button class="hl-btn" type="button" data-hl-note>নোট</button>
+  <button class="hl-btn hl-btn-del" type="button" data-hl-del>মুছুন</button>
+</div>
+<div class="resume-toast" id="resumeToast">
+  <span class="resume-text" id="resumeLabel"></span>
+  <button class="btn-primary resume-go" id="btnResumeGo" type="button">চালিয়ে যান</button>
+  <button class="icon-btn resume-dismiss" id="btnResumeDismiss" aria-label="বন্ধ">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
+</div>
 
 <!-- ============================================================
      AUDIO PLAYER BAR (when narrating)

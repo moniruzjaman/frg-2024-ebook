@@ -215,7 +215,7 @@
 </a>`);
             }
         }
-        nav.innerHTML = html.join('');
+        nav.innerHTML = '<div class="toc-bookmarks" id="tocBookmarks"></div>' + html.join('');
     }
 
     // ── Apply settings ─────────────────────────────────────────
@@ -404,6 +404,17 @@
                 const chTitle = current.querySelector('.chapter-title')?.textContent || current.id;
                 if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.chapterRead(current.id, chTitle);
             }
+            // Save last position (resume feature) + refresh bookmark button
+            if (current.id !== 'hero') {
+                try {
+                    localStorage.setItem('ebook-last', JSON.stringify({
+                        id: current.id,
+                        num: (current.dataset && current.dataset.num) || '',
+                        title: current.querySelector('.chapter-title')?.textContent || '',
+                    }));
+                } catch (e) { /* storage unavailable */ }
+            }
+            updateBookmarkBtn();
         }
         // Analytics: reading progress (per chapter, milestone-based)
         if (state.currentChapter && state.currentChapter !== 'hero') {
@@ -534,6 +545,9 @@
         closeToc();
         closeSettings();
         closeShare();
+        closeSearch();
+        closeNotes();
+        hideHlToolbar();
         const el = document.getElementById(id);
         if (el) {
             // Auto-expand collapsed targets (e.g., TOC link to an intro)
@@ -922,8 +936,22 @@
             switch (e.key) {
                 case 'Escape':
                     if ($('#shareModal').classList.contains('visible')) closeShare();
+                    else if ($('#searchModal').classList.contains('visible')) closeSearch();
+                    else if ($('#notesModal').classList.contains('visible')) closeNotes();
                     else if ($('#tocSidebar').classList.contains('open')) closeToc();
                     else if ($('#settingsPanel').classList.contains('open')) closeSettings();
+                    hideHlToolbar();
+                    break;
+                case '/':
+                    e.preventDefault();
+                    openSearch();
+                    break;
+                case 'b':
+                case 'B':
+                    toggleBookmark();
+                    break;
+                case '?':
+                    if (!$('#settingsPanel').classList.contains('open')) openSettings();
                     break;
                 case 'm':
                 case 'M':
@@ -958,6 +986,515 @@
         });
     }
 
+    // ── Search (findability) ───────────────────────────────────
+    function stripHtml(html) {
+        const d = document.createElement('div');
+        d.innerHTML = html;
+        return (d.textContent || '').replace(/\s+/g, ' ').normalize('NFD');
+    }
+    const SEARCH_INDEX = EBOOK_CONTENT.chapters.map((ch) => ({
+        id: ch.id,
+        num: ch.numLabel,
+        title: ch.title,
+        head: ch.subtitle || '',
+        text: stripHtml(ch.html),
+    }));
+    const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    let lastSearchResults = [];
+
+    function runSearch(q) {
+        q = (q || '').trim().normalize('NFD'); // match PDF-extracted text (decomposed nukta)
+        const meta = $('#searchMeta');
+        const box = $('#searchResults');
+        if (q.length < 2) {
+            meta.textContent = 'কমপক্ষে ২ অক্ষর লিখুন — ৩৬টি অধ্যায় ও ১৫০+ সারণির সম্পূর্ণ পাঠ্যে অনুসন্ধান';
+            box.innerHTML = '';
+            lastSearchResults = [];
+            return;
+        }
+        const lq = q.toLowerCase();
+        const hits = [];
+        for (const ch of SEARCH_INDEX) {
+            const inTitle = ch.title.toLowerCase().includes(lq) || ch.num.toLowerCase().includes(lq);
+            const inHead = ch.head.toLowerCase().includes(lq);
+            const idx = ch.text.toLowerCase().indexOf(lq);
+            if (!inTitle && !inHead && idx === -1) continue;
+            let snippet = '';
+            if (idx !== -1) {
+                const s = Math.max(0, idx - 60);
+                snippet = (s > 0 ? '…' : '') + ch.text.slice(s, idx + q.length + 80) + '…';
+            } else {
+                snippet = ch.head || ch.title;
+            }
+            hits.push({ ch, inTitle: inTitle || inHead, snippet, lq });
+        }
+        hits.sort((a, b) => (b.inTitle - a.inTitle));
+        lastSearchResults = hits.slice(0, 30);
+        const chCount = new Set(lastSearchResults.map(h => h.ch.id)).size;
+        meta.textContent = hits.length
+            ? `${bnNum(hits.length)}টি ফলাফল · ${bnNum(chCount)}টি অধ্যায়ে`
+            : 'কোনো ফলাফল নেই — বানান বদলে দেখুন';
+        const markQ = (txt) => esc(txt).split(esc(q)).join('<mark>' + esc(q) + '</mark>');
+        box.innerHTML = lastSearchResults.map((h, i) => `
+<button class="search-hit" type="button" data-idx="${i}">
+  <span class="search-hit-num">${esc(h.ch.num)}</span>
+  <span class="search-hit-body">
+    <span class="search-hit-title">${markQ(h.ch.title)}</span>
+    <span class="search-hit-snippet">${markQ(h.snippet)}</span>
+  </span>
+</button>`).join('');
+        if (hits.length && window.EBOOK_ANALYTICS) {
+            EBOOK_ANALYTICS.event('search_run', { term_len: q.length, results: hits.length });
+        }
+    }
+
+    function scrollToMatch(id, q) {
+        const el = document.getElementById(id);
+        if (!el || !q || q.length < 2) return;
+        const lq = q.toLowerCase().normalize('NFD');
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.nodeValue.toLowerCase().normalize('NFD').includes(lq)) continue;
+            // Flash the whole text node — index mapping across NFC/NFD is unsafe
+            const r = document.createRange();
+            r.selectNodeContents(node);
+            const span = document.createElement('span');
+            span.className = 'search-flash';
+            try { r.surroundContents(span); } catch (e) { /* skip flash */ }
+            span.scrollIntoView({ block: 'center' });
+            setTimeout(() => {
+                const p = span.parentNode;
+                if (p) {
+                    while (span.firstChild) p.insertBefore(span.firstChild, span);
+                    span.remove();
+                    p.normalize();
+                }
+            }, 2200);
+            return;
+        }
+    }
+
+    function openSearch() {
+        $('#searchModal').classList.add('visible');
+        closeToc();
+        setTimeout(() => $('#searchInput').focus(), 60);
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('search_open', {});
+    }
+    function closeSearch() {
+        $('#searchModal')?.classList.remove('visible');
+    }
+
+    // ── Bookmarks (findability) ────────────────────────────────
+    function getBookmarks() {
+        try { return JSON.parse(localStorage.getItem('ebook-bookmarks') || '[]'); }
+        catch (e) { return []; }
+    }
+    function isBookmarked(id) { return getBookmarks().includes(id); }
+    function toggleBookmark() {
+        const id = state.currentChapter;
+        if (!id || id === 'hero') return;
+        const list = getBookmarks();
+        const i = list.indexOf(id);
+        if (i >= 0) {
+            list.splice(i, 1);
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('bookmark_remove', { chapter_id: id });
+        } else {
+            list.unshift(id);
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('bookmark_add', { chapter_id: id });
+        }
+        try { localStorage.setItem('ebook-bookmarks', JSON.stringify(list.slice(0, 30))); } catch (e) {}
+        renderBookmarks();
+        updateBookmarkBtn();
+    }
+    function updateBookmarkBtn() {
+        const btn = $('#btnBookmark');
+        if (!btn) return;
+        const id = state.currentChapter;
+        btn.classList.toggle('active', !!id && id !== 'hero' && isBookmarked(id));
+        btn.disabled = !id || id === 'hero';
+    }
+    function renderBookmarks() {
+        const box = $('#tocBookmarks');
+        if (!box) return;
+        const list = getBookmarks().filter((id) => document.getElementById(id));
+        if (!list.length) {
+            box.innerHTML = '<div class="toc-bookmarks-empty">বুকমার্ক নেই — পড়ার সময় <kbd>B</kbd> বা উপরের 🔖 বোতামে অধ্যায় সংরক্ষণ করুন</div>';
+            return;
+        }
+        box.innerHTML = '<div class="toc-section-header">বুকমার্ক করা অধ্যায়</div>' + list.map((id) => {
+            const sec = document.getElementById(id);
+            const ch = SEARCH_INDEX.find(c => c.id === id);
+            const num = sec?.dataset?.num || ch?.num || '';
+            const title = sec?.querySelector('.chapter-title')?.textContent || ch?.title || id;
+            return `
+<div class="toc-bookmark-row">
+  <a href="#${id}" class="toc-item toc-item-bm" data-target="${id}">
+    <span class="toc-num">🔖</span>
+    <span class="toc-text-block"><span class="toc-item-title">${esc(num)} ${esc(title)}</span></span>
+  </a>
+  <button class="toc-bm-del" type="button" data-bm-del="${id}" aria-label="বুকমার্ক মুছুন">✕</button>
+</div>`;
+        }).join('');
+    }
+
+    // ── Resume last chapter (findability) ──────────────────────
+    function initResume() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem('ebook-last')); } catch (e) {}
+        if (!saved || !saved.id || !document.getElementById(saved.id)) return;
+        if (window.location.hash) return; // deep link — respect the explicit target
+        if (saved.id === 'ch1') return;   // first chapter — nothing to resume
+        $('#resumeLabel').textContent = (saved.num ? saved.num + ' · ' : '') + saved.title;
+        const toast = $('#resumeToast');
+        setTimeout(() => toast.classList.add('visible'), 1200);
+        clearTimeout(initResume._t);
+        initResume._t = setTimeout(() => toast.classList.remove('visible'), 18000);
+    }
+
+    // ── Table filters (field use) ──────────────────────────────
+    function enhanceTables() {
+        let n = 0;
+        $$('.frg-table').forEach((tbl) => {
+            const rows = Array.from(tbl.querySelectorAll('tbody tr'));
+            if (rows.length < 8) return;
+            n++;
+            const wrap = document.createElement('div');
+            wrap.className = 'tbl-filter';
+            wrap.innerHTML = `
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+<input type="text" class="tbl-filter-input" placeholder="এই সারণিতে খুঁজুন…" aria-label="সারণির সারি ফিল্টার করুন">
+<span class="tbl-filter-count"></span>`;
+            tbl.parentNode.insertBefore(wrap, tbl);
+            const input = wrap.querySelector('input');
+            const countEl = wrap.querySelector('.tbl-filter-count');
+            let reported = false;
+            input.addEventListener('input', () => {
+                const q = input.value.trim().toLowerCase().normalize('NFD');
+                let shown = 0;
+                rows.forEach((tr) => {
+                    const hit = !q || tr.textContent.toLowerCase().normalize('NFD').includes(q);
+                    tr.style.display = hit ? '' : 'none';
+                    if (hit) shown++;
+                });
+                countEl.textContent = q ? `${bnNum(shown)}/${bnNum(rows.length)}` : '';
+                tbl.classList.toggle('tbl-filtering', !!q);
+                if (!reported && q.length >= 2 && window.EBOOK_ANALYTICS) {
+                    reported = true;
+                    EBOOK_ANALYTICS.event('table_filter_use', { rows: rows.length });
+                }
+            });
+        });
+        if (n) console.log(`সারণি ফিল্টার যোগ হয়েছে: ${n}টি`);
+    }
+
+    // ── Highlights & notes (reading UX) ────────────────────────
+    const HL_KEY = 'ebook-highlights';
+    function getHighlights() {
+        try { return JSON.parse(localStorage.getItem(HL_KEY) || '[]'); }
+        catch (e) { return []; }
+    }
+    function setHighlights(list) {
+        try { localStorage.setItem(HL_KEY, JSON.stringify(list.slice(0, 200))); } catch (e) {}
+    }
+    function paraCoords(para) {
+        const body = para.closest('.chapter-body');
+        if (!body || !body.id) return null;
+        const paras = Array.from(body.querySelectorAll('p'));
+        return { ch: body.id.replace(/-body$/, ''), pi: paras.indexOf(para) };
+    }
+    function applyMark(para, hl) {
+        const walker = document.createTreeWalker(para, NodeFilter.SHOW_TEXT);
+        let node, occ = 0;
+        while ((node = walker.nextNode())) {
+            let idx = node.nodeValue.indexOf(hl.text);
+            while (idx !== -1) {
+                if (occ === (hl.occ || 0)) {
+                    const mark = document.createElement('mark');
+                    mark.className = 'hl hl-' + (hl.color || 'y');
+                    if (hl.note) mark.title = hl.note;
+                    mark.dataset.hlKey = hl.k;
+                    const r = document.createRange();
+                    r.setStart(node, idx);
+                    r.setEnd(node, Math.min(node.nodeValue.length, idx + hl.text.length));
+                    try { r.surroundContents(mark); return true; } catch (e) { return false; }
+                }
+                occ++;
+                idx = node.nodeValue.indexOf(hl.text, idx + 1);
+            }
+        }
+        return false;
+    }
+    function applySavedHighlights() {
+        getHighlights().forEach((hl) => {
+            const body = document.getElementById(hl.ch + '-body');
+            const para = body && body.querySelectorAll('p')[hl.pi];
+            if (para) applyMark(para, hl);
+        });
+    }
+    let selState = null;
+    let activeMark = null;
+    function hideHlToolbar() {
+        $('#hlToolbar')?.classList.remove('visible');
+        selState = null;
+        activeMark = null;
+    }
+    function computeOcc(para, range) {
+        const pre = document.createRange();
+        pre.selectNodeContents(para);
+        pre.setEnd(range.startContainer, range.startOffset);
+        const prefix = pre.toString();
+        return prefix.split(selState.text).length - 1;
+    }
+    function positionToolbar(x, y) {
+        const tb = $('#hlToolbar');
+        tb.style.left = Math.max(10, Math.min(window.innerWidth - tb.offsetWidth - 10, x)) + 'px';
+        tb.style.top = Math.max(58, Math.min(window.innerHeight - 60, y)) + 'px';
+        tb.classList.add('visible');
+    }
+    function onSelectionChange() {
+        if (activeMark) return; // mark-click mode
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.rangeCount) { hideHlToolbar(); return; }
+        const range = sel.getRangeAt(0);
+        const anc = range.commonAncestorContainer.nodeType === 3
+            ? range.commonAncestorContainer.parentElement
+            : range.commonAncestorContainer;
+        const para = anc?.closest?.('.chapter-body p');
+        if (!para) { hideHlToolbar(); return; }
+        if (range.startContainer !== range.endContainer) { hideHlToolbar(); return; }
+        const text = sel.toString().replace(/\s+/g, ' ').trim();
+        if (!text || text.length < 2) { hideHlToolbar(); return; }
+        selState = { para, text };
+        selState.occ = computeOcc(para, range);
+        const r = range.getBoundingClientRect();
+        const tb = $('#hlToolbar');
+        positionToolbar(r.left + r.width / 2 - tb.offsetWidth / 2, r.top - tb.offsetHeight - 10);
+    }
+    function addHighlight(color, note) {
+        if (!selState) return;
+        const { para, text, occ } = selState;
+        const coords = paraCoords(para);
+        if (!coords || coords.pi < 0) return;
+        const k = coords.ch + '|' + coords.pi + '|' + occ + '|' + text.slice(0, 32);
+        const list = getHighlights().filter((h) => h.k !== k);
+        const hl = { k, ch: coords.ch, pi: coords.pi, text, occ, color, note: note || '', ts: Date.now() };
+        list.push(hl);
+        setHighlights(list);
+        applyMark(para, hl);
+        window.getSelection().removeAllRanges();
+        hideHlToolbar();
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event(note ? 'note_add' : 'highlight_add', {});
+        renderNotesModal();
+    }
+    function removeHighlightByKey(k) {
+        setHighlights(getHighlights().filter((h) => h.k !== k));
+        const mark = $(`mark[data-hl-key="${CSS.escape(k)}"]`);
+        if (mark) {
+            const frag = document.createDocumentFragment();
+            while (mark.firstChild) frag.appendChild(mark.firstChild);
+            mark.replaceWith(frag);
+            mark.parentElement?.normalize();
+        }
+        renderNotesModal();
+        hideHlToolbar();
+    }
+
+    function renderNotesModal() {
+        const body = $('#notesBody');
+        if (!body) return;
+        const list = getHighlights();
+        if (!list.length) {
+            body.innerHTML = '<div class="notes-empty">এখনো কোনো হাইলাইট বা নোট নেই।<br>পড়ার সময় যেকোনো লাইন সিলেক্ট করে হাইলাইট বা নোট যোগ করুন — পরে এখানে জমা থাকবে।</div>';
+            return;
+        }
+        const byCh = {};
+        list.forEach((h) => { (byCh[h.ch] = byCh[h.ch] || []).push(h); });
+        body.innerHTML = Object.keys(byCh).map((cid) => {
+            const cd = SEARCH_INDEX.find(c => c.id === cid);
+            const label = cd ? `${cd.num} · ${cd.title}` : cid;
+            return `<div class="notes-group"><div class="notes-group-title">${esc(label)}</div>` +
+                byCh[cid].map((h) => `
+<div class="notes-item">
+  <span class="notes-dot hl-${h.color || 'y'}"></span>
+  <div class="notes-item-body">
+    <div class="notes-item-text">${esc(h.text)}</div>
+    ${h.note ? `<div class="notes-item-note">${esc(h.note)}</div>` : ''}
+  </div>
+  <div class="notes-item-actions">
+    <button class="toc-mini-btn" type="button" data-notes-jump="${h.ch}">যান</button>
+    <button class="toc-mini-btn" type="button" data-notes-del="${esc(h.k)}">মুছুন</button>
+  </div>
+</div>`).join('') + '</div>';
+        }).join('');
+    }
+    function openNotes() {
+        renderNotesModal();
+        $('#notesModal').classList.add('visible');
+        closeToc();
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('notes_open', { count: getHighlights().length });
+    }
+    function closeNotes() {
+        $('#notesModal')?.classList.remove('visible');
+    }
+
+    // ── Feature event wiring ───────────────────────────────────
+    function wireFeatureEvents() {
+        // Search
+        $('#btnSearch').addEventListener('click', openSearch);
+        $('#btnCloseSearch').addEventListener('click', closeSearch);
+        $('#searchModal').addEventListener('click', (e) => {
+            if (e.target.id === 'searchModal') closeSearch();
+        });
+        $('#btnSearchClear').addEventListener('click', () => {
+            $('#searchInput').value = '';
+            runSearch('');
+            $('#searchInput').focus();
+        });
+        let searchDeb;
+        $('#searchInput').addEventListener('input', (e) => {
+            clearTimeout(searchDeb);
+            searchDeb = setTimeout(() => runSearch(e.target.value), 160);
+        });
+        $('#searchInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const first = $('#searchResults .search-hit');
+                if (first) first.click();
+            }
+        });
+        $('#searchResults').addEventListener('click', (e) => {
+            const hit = e.target.closest('.search-hit');
+            if (!hit) return;
+            const h = lastSearchResults[parseInt(hit.dataset.idx, 10)];
+            if (!h) return;
+            closeSearch();
+            gotoChapter(h.ch.id);
+            setTimeout(() => scrollToMatch(h.ch.id, h.lq ? (hit.querySelector('.search-hit-snippet mark')?.textContent || $('#searchInput').value.trim()) : $('#searchInput').value.trim()), 500);
+        });
+
+        // Bookmarks
+        $('#btnBookmark').addEventListener('click', toggleBookmark);
+        document.addEventListener('click', (e) => {
+            const del = e.target.closest('[data-bm-del]');
+            if (del) {
+                e.preventDefault();
+                e.stopPropagation();
+                const list = getBookmarks().filter((id) => id !== del.dataset.bmDel);
+                try { localStorage.setItem('ebook-bookmarks', JSON.stringify(list)); } catch (err) {}
+                renderBookmarks();
+                updateBookmarkBtn();
+                if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('bookmark_remove', { chapter_id: del.dataset.bmDel });
+            }
+        });
+
+        // Resume toast
+        $('#btnResumeGo').addEventListener('click', () => {
+            try {
+                const saved = JSON.parse(localStorage.getItem('ebook-last'));
+                if (saved) gotoChapter(saved.id);
+            } catch (e) {}
+            $('#resumeToast').classList.remove('visible');
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('resume_click', {});
+        });
+        $('#btnResumeDismiss').addEventListener('click', () => $('#resumeToast').classList.remove('visible'));
+
+        // Highlights & notes
+        document.addEventListener('selectionchange', () => setTimeout(onSelectionChange, 10));
+        window.addEventListener('scroll', () => {
+            if (!$('#hlToolbar').classList.contains('visible')) return;
+            // keep the toolbar anchored to a live selection
+            const sel = window.getSelection();
+            if (!sel || sel.isCollapsed) hideHlToolbar();
+        }, { passive: true });
+        const tb = $('#hlToolbar');
+        tb.addEventListener('mousedown', (e) => e.preventDefault()); // keep selection
+        tb.addEventListener('click', (e) => {
+            const btn = e.target.closest('.hl-btn');
+            if (!btn) return;
+            if (btn.dataset.hlColor) {
+                if (activeMark) restyleActiveMark(btn.dataset.hlColor);
+                else addHighlight(btn.dataset.hlColor, null);
+            } else if (btn.dataset.hlNote) {
+                const existing = activeMark ? getHighlights().find((h) => h.k === activeMark.dataset.hlKey) : null;
+                const note = window.prompt('নোট লিখুন (হাইলাইটের সাথে সংরক্ষিত হবে):', existing?.note || '');
+                if (note === null) return;
+                if (activeMark) addNoteToActiveMark(note);
+                else addHighlight('y', note);
+            } else if (btn.dataset.hlDel) {
+                if (activeMark?.dataset.hlKey) removeHighlightByKey(activeMark.dataset.hlKey);
+                else if (selState) {
+                    // delete any highlight fully inside the selection
+                    const sel = window.getSelection();
+                    const text = selState.text;
+                    const inSel = getHighlights().filter((h) => h.ch === paraCoords(selState.para)?.ch && h.pi === paraCoords(selState.para)?.pi && h.text === text);
+                    if (inSel.length) { removeHighlightByKey(inSel[0].k); }
+                    else { window.getSelection()?.removeAllRanges?.(); hideHlToolbar(); }
+                }
+            }
+        });
+        // Clicking an existing highlight selects it for restyle/note/delete
+        document.addEventListener('click', (e) => {
+            const mark = e.target.closest('mark.hl');
+            if (!mark) return;
+            e.preventDefault();
+            activeMark = mark;
+            selState = null;
+            const r = mark.getBoundingClientRect();
+            positionToolbar(r.left + r.width / 2 - tb.offsetWidth / 2, r.top - tb.offsetHeight - 10);
+        });
+
+        // Notes modal
+        $('#btnNotesToc').addEventListener('click', openNotes);
+        $('#btnCloseNotes').addEventListener('click', closeNotes);
+        $('#notesModal').addEventListener('click', (e) => {
+            if (e.target.id === 'notesModal') closeNotes();
+        });
+        $('#notesBody').addEventListener('click', (e) => {
+            const jump = e.target.closest('[data-notes-jump]');
+            if (jump) { closeNotes(); gotoChapter(jump.dataset.notesJump); return; }
+            const del = e.target.closest('[data-notes-del]');
+            if (del) removeHighlightByKey(del.dataset.notesDel);
+        });
+        $('#btnNotesExport').addEventListener('click', async () => {
+            const list = getHighlights();
+            if (!list.length) return;
+            const lines = list.map((h) => {
+                const cd = SEARCH_INDEX.find(c => c.id === h.ch);
+                return `【${cd ? cd.num + ' · ' + cd.title : h.ch}】 ${h.text}${h.note ? '\n  নোট: ' + h.note : ''}`;
+            });
+            const text = 'সার সুপারিশমালা হ্যান্ডবই-২০২৪ — আমার হাইলাইট ও নোট\n\n' + lines.join('\n\n');
+            try {
+                await navigator.clipboard.writeText(text);
+                $('#btnNotesExport').textContent = '✓ কপি হয়েছে';
+            } catch (err) {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                ta.remove();
+                $('#btnNotesExport').textContent = '✓ কপি হয়েছে';
+            }
+            setTimeout(() => { $('#btnNotesExport').textContent = 'কপি করুন'; }, 1600);
+        });
+    }
+    function restyleActiveMark(color) {
+        const k = activeMark.dataset.hlKey;
+        const list = getHighlights().map((h) => h.k === k ? { ...h, color } : h);
+        setHighlights(list);
+        activeMark.className = 'hl hl-' + color;
+        hideHlToolbar();
+    }
+    function addNoteToActiveMark(note) {
+        const k = activeMark.dataset.hlKey;
+        const list = getHighlights().map((h) => h.k === k ? { ...h, note, color: h.color || 'o' } : h);
+        setHighlights(list);
+        activeMark.title = note;
+        activeMark.classList.add('hl-' + (list.find((h) => h.k === k).color || 'o'));
+        hideHlToolbar();
+        if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('note_add', {});
+    }
+
     // ── Init ───────────────────────────────────────────────────
     function init() {
         renderBook();
@@ -966,6 +1503,12 @@
         renderToc();
         applySettings();
         wireEvents();
+        wireFeatureEvents();
+        applySavedHighlights();
+        enhanceTables();
+        renderBookmarks();
+        updateBookmarkBtn();
+        initResume();
         restoreInteractivity();
         onScroll();
 
@@ -978,8 +1521,8 @@
         // Pre-warm TTS voices
         if (window.EBOOK_TTS) EBOOK_TTS.init();
 
-        console.log('%c📖 সার সুপারিশমালা হ্যান্ডবই-২০২৪ — ই-বুক পাঠক', 'color:#145A32;font-weight:bold;font-size:14px');
-        console.log('Shortcuts: M=সূচিপত্র · S=সেটিংস · T=শুনুন · Esc=বন্ধ');
+        console.log('%c📖 সার সুপারিশমালা হ্যান্ডবই-২০২৪ — ই-বুক পাঠক', 'color:#2C6C3C;font-weight:bold;font-size:14px');
+        console.log('Shortcuts: /=অনুসন্ধান · M=সূচিপত্র · B=বুকমার্ক · T=শুনুন · ←/→=অধ্যায় · S=সেটিংস · Esc=বন্ধ');
     }
 
     if (document.readyState === 'loading') {
