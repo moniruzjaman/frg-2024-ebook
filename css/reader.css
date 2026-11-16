@@ -2423,3 +2423,75 @@ mark.hl-o { background: #F6DCAD; }
     .chapter.is-collapsed .epigraph { display: block !important; }
     .chapter-chevron, .chapter-toggle { visibility: hidden; }
 }
+
+/* ── Official fertilizer recommendation card (FRS-BD) ─────── */
+.official-links {
+    margin-top: 18px;
+}
+.official-links-label {
+    display: block;
+    font-family: var(--font-head);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--c-muted);
+    margin-bottom: 8px;
+}
+.official-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--c-primary-50);
+    border: 1px solid var(--c-primary-100);
+    border-left: 4px solid var(--c-accent);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-decoration: none;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.official-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(44, 108, 60, 0.18);
+    border-color: var(--c-accent);
+}
+.official-card-icon {
+    flex: none;
+    color: var(--c-primary);
+    background: var(--c-paper);
+    border: 1px solid var(--c-primary-100);
+    border-radius: 10px;
+    padding: 8px;
+    box-sizing: content-box;
+    width: 34px;
+    height: 34px;
+}
+.official-card-body { flex: 1; min-width: 0; }
+.official-card-title {
+    display: block;
+    font-family: var(--font-head);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--c-primary);
+    margin-bottom: 4px;
+}
+.official-card-desc {
+    display: block;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--c-ink-soft);
+}
+.official-card-arrow {
+    flex: none;
+    font-size: 18px;
+    color: var(--c-accent);
+    transition: transform 0.15s;
+}
+.official-card:hover .official-card-arrow { transform: translateX(3px); }
+[data-theme="night"] .official-card { background: rgba(236, 201, 25, 0.08); }
+[data-theme="night"] .official-card-icon { background: transparent; }
+[data-theme="night"] .official-card-title { color: #ECC919; }
+
+@media (max-width: 560px) {
+    .official-card { padding: 12px; gap: 10px; }
+    .official-card-icon { width: 28px; height: 28px; padding: 6px; }
+}

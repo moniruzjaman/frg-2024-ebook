@@ -42,6 +42,21 @@
   </div>
 </div>`;
 
+    // Official government fertilizer recommendation card tool (SRDI — frs-bd.com).
+    // Injected into the About section and the book-end card.
+    const OFFICIAL_LINKS = `
+<div class="official-links">
+  <span class="official-links-label">অফিসিয়াল সার সুপারিশ কার্ড — সরকারি অনলাইন টুল</span>
+  <a class="official-card" data-official-link="frs_bd" href="http://www.frs-bd.com/" target="_blank" rel="noopener" title="FRS-BD — ফসল ও মাটি অনুযায়ী সার সুপারিশ কার্ড">
+    <svg class="official-card-icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="12.5" x2="14" y2="12.5"/><line x1="7" y1="16" x2="11" y2="16"/><path d="M17 15l2 2 4-4" transform="scale(0.62) translate(6.5 9)"/></svg>
+    <span class="official-card-body">
+      <strong class="official-card-title">FRS-BD — সার সুপারিশ কার্ড তৈরি করুন</strong>
+      <span class="official-card-desc">বিভাগ, জেলা, উপজেলা, মাটির ধরন ও ফসলের মৌসুম বেছে নিয়ে ফসলভিত্তিক অফিসিয়াল সার সুপারিশ কার্ড তৈরি ও প্রিন্ট করুন (www.frs-bd.com)</span>
+    </span>
+    <span class="official-card-arrow" aria-hidden="true">→</span>
+  </a>
+</div>`;
+
     // ── Visual handbook slides (courtesy: fertilizer-handbook-2024) ─
     // 42 BARC presentation slides, 1376×768 WebP, runtime-cached on demand
     const SLIDE_COUNT = 42;
@@ -190,9 +205,9 @@
 
         // Author links: append to About section and book-end card
         const aboutBody = $('#about .chapter-body');
-        if (aboutBody) aboutBody.insertAdjacentHTML('beforeend', AUTHOR_LINKS);
+        if (aboutBody) aboutBody.insertAdjacentHTML('beforeend', AUTHOR_LINKS + OFFICIAL_LINKS);
         const endFoot = $('#bookEnd .book-end-foot');
-        if (endFoot) endFoot.insertAdjacentHTML('beforebegin', AUTHOR_LINKS);
+        if (endFoot) endFoot.insertAdjacentHTML('beforebegin', AUTHOR_LINKS + OFFICIAL_LINKS);
 
         restoreCollapse();
     }
@@ -728,6 +743,15 @@
             const chip = e.target.closest('.author-chip');
             if (chip && window.EBOOK_ANALYTICS) {
                 EBOOK_ANALYTICS.event('author_link_click', { link_id: chip.dataset.authorLink || 'unknown' });
+            }
+        });
+
+        // Official fertilizer recommendation card (FRS-BD) — About section + book-end
+        document.addEventListener('click', (e) => {
+            const card = e.target.closest('.official-card');
+            if (card && window.EBOOK_ANALYTICS) {
+                const source = card.closest('.book-end') ? 'book_end' : 'about';
+                EBOOK_ANALYTICS.event('frs_bd_click', { source });
             }
         });
 
