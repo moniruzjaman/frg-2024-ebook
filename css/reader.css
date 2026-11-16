@@ -2290,6 +2290,57 @@ mark.hl-o { background: #F6DCAD; }
     transition: opacity 0.3s, transform 0.3s;
 }
 .resume-toast.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+/* ── PWA notice (installed users: official FRS-BD card) ───── */
+.pwa-notice {
+    position: fixed;
+    left: 50%;
+    bottom: 150px;
+    transform: translate(-50%, 20px);
+    z-index: 109;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(92vw, 620px);
+    background: #1E5230;
+    color: #FDFCF7;
+    border: 1.5px solid rgba(236, 201, 25, 0.6);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+}
+.pwa-notice.visible { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+.pwa-notice-icon { flex: none; }
+.pwa-notice-body { flex: 1; min-width: 0; }
+.pwa-notice-body strong {
+    display: block;
+    font-family: var(--font-head);
+    font-size: 13.5px;
+    color: #ECC919;
+    margin-bottom: 3px;
+}
+.pwa-notice-body span {
+    display: block;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #E6EFE0;
+}
+.pwa-notice-cta {
+    flex: none;
+    font-size: 12.5px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    text-decoration: none;
+}
+.pwa-notice .resume-dismiss { color: #E6EFE0; }
+@media (max-width: 560px) {
+    .pwa-notice { bottom: 160px; flex-wrap: wrap; padding: 11px 12px; gap: 10px; }
+    .pwa-notice-body { flex: 1 1 calc(100% - 90px); }
+    .pwa-notice-cta { padding: 8px 12px; }
+}
 .resume-text {
     flex: 1;
     min-width: 0;

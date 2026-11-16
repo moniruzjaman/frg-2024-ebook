@@ -750,7 +750,9 @@
         document.addEventListener('click', (e) => {
             const card = e.target.closest('[data-official-link]');
             if (card && window.EBOOK_ANALYTICS) {
-                const source = card.id === 'btnHeroFrs' ? 'hero' : (card.closest('.book-end') ? 'book_end' : 'about');
+                const source = card.id === 'btnHeroFrs' ? 'hero'
+                    : (card.closest('.book-end') ? 'book_end'
+                        : (card.closest('#pwaNotice') ? 'notice' : 'about'));
                 EBOOK_ANALYTICS.event('frs_bd_click', { source });
             }
         });
@@ -1176,6 +1178,37 @@
         initResume._t = setTimeout(() => toast.classList.remove('visible'), 18000);
     }
 
+    // ── PWA notice: official FRS-BD card (installed users) ─────
+    // Shows once, only in standalone/installed mode (or ?notice_test for
+    // debugging); dismissal is remembered so it never nags again.
+    function initPwaNotice() {
+        const notice = $('#pwaNotice');
+        if (!notice) return;
+        const KEY = 'frg-frs-notice-v1';
+        let dismissed = false;
+        try { dismissed = !!localStorage.getItem(KEY); } catch (e) {}
+        const standalone = window.matchMedia('(display-mode: standalone)').matches
+            || window.navigator.standalone === true
+            || location.search.indexOf('notice_test') !== -1;
+        if (!standalone || dismissed) return;
+        setTimeout(() => {
+            notice.classList.add('visible');
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('frs_notice_view', {});
+        }, 2600);
+        clearTimeout(initPwaNotice._t);
+        initPwaNotice._t = setTimeout(() => notice.classList.remove('visible'), 20000);
+        $('#btnNoticeDismiss').addEventListener('click', () => {
+            notice.classList.remove('visible');
+            try { localStorage.setItem(KEY, '1'); } catch (e) {}
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('frs_notice_dismiss', {});
+        });
+        $('#btnNoticeCta').addEventListener('click', () => {
+            notice.classList.remove('visible');
+            try { localStorage.setItem(KEY, '1'); } catch (e) {}
+            if (window.EBOOK_ANALYTICS) EBOOK_ANALYTICS.event('frs_notice_cta', {});
+        });
+    }
+
     // ── Table filters (field use) ──────────────────────────────
     function enhanceTables() {
         let n = 0;
@@ -1533,6 +1566,7 @@
         renderBookmarks();
         updateBookmarkBtn();
         initResume();
+        initPwaNotice();
         restoreInteractivity();
         onScroll();
 
